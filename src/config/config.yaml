@@ -2,4 +2,4 @@ concurrency: 16
 http_timeout_sec: 30
 http_retries: 2
 log_level: info
-releases_branch: releases
+releases_branch: release

@@ -1,4 +1,4 @@
-name: Cleanup Releases History
+name: Cleanup Release History
 
 on:
   schedule:
@@ -12,31 +12,31 @@ jobs:
   cleanup:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
-      - name: Squash commits older than 6 months on releases branch
+      - name: Squash commits older than 6 months on release branch
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-          git fetch origin releases 2>/dev/null || true
+          git fetch origin release 2>/dev/null || true
 
-          # Exit if releases branch doesn't exist
-          if ! git show-ref --verify --quiet refs/remotes/origin/releases; then
-            echo "releases branch does not exist, nothing to clean"
+          # Exit if release branch doesn't exist
+          if ! git show-ref --verify --quiet refs/remotes/origin/release; then
+            echo "release branch does not exist, nothing to clean"
             exit 0
           fi
 
-          git checkout -B releases origin/releases
+          git checkout -B release origin/release
 
           # Calculate cutoff date (6 months ago)
           cutoff_date=$(date -d "6 months ago" +%Y-%m-%d)
           echo "Cutoff date: $cutoff_date"
 
           # Find the last commit before the cutoff date
-          cutoff_commit=$(git log releases --before="$cutoff_date" -1 --format="%H")
+          cutoff_commit=$(git log release --before="$cutoff_date" -1 --format="%H")
 
           if [ -z "$cutoff_commit" ]; then
             echo "No commits older than 6 months, nothing to clean"
@@ -44,11 +44,11 @@ jobs:
           fi
 
           echo "Last commit before cutoff: $cutoff_commit"
-          commit_count_before=$(git rev-list --count releases)
+          commit_count_before=$(git rev-list --count release)
           echo "Total commits before cleanup: $commit_count_before"
 
           # Check if there are commits after the cutoff to rebase
-          commits_after=$(git rev-list --count "$cutoff_commit"..releases)
+          commits_after=$(git rev-list --count "$cutoff_commit"..release)
 
           # Create a new root commit with the tree at the cutoff point
           tree_at_cutoff=$(git rev-parse "$cutoff_commit^{tree}")
@@ -59,11 +59,11 @@ jobs:
             git reset --hard "$new_root"
           else
             # Rebase all commits after cutoff onto the new root
-            git rebase --onto "$new_root" "$cutoff_commit" releases
+            git rebase --onto "$new_root" "$cutoff_commit" release
           fi
 
-          commit_count_after=$(git rev-list --count releases)
+          commit_count_after=$(git rev-list --count release)
           echo "Total commits after cleanup: $commit_count_after"
 
-          git push origin releases --force
+          git push origin release --force
           echo "Cleanup complete: squashed $((commit_count_before - commit_count_after)) old commits"

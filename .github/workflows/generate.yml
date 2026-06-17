@@ -14,13 +14,14 @@ jobs:
   generate:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
-      - uses: actions/setup-go@v4
+      - uses: actions/setup-go@v5
         with:
-          go-version: '1.21'
+          go-version-file: 'go.mod'
+          cache: false
 
       - name: Build
         run: go build -o quantumult-x ./src
@@ -30,21 +31,21 @@ jobs:
           ACCEL_DOMAIN: ${{ vars.ACCEL_DOMAIN }}
         run: ./quantumult-x --conf-dir . --out-dir out
 
-      - name: Commit and push to releases
+      - name: Commit and push to release
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-          # Fetch existing releases branch to compute line deltas
-          git fetch origin releases 2>/dev/null || true
+          # Fetch existing release branch to compute line deltas
+          git fetch origin release 2>/dev/null || true
 
           # Build commit message with per-file line counts and deltas
           commit_msg="update snippets"
           for f in out/*.snippet; do
             name=$(basename "$f")
             count=$(wc -l < "$f")
-            # Try to get old line count from releases branch
-            old_count=$(git show origin/releases:"$name" 2>/dev/null | wc -l || echo "0")
+            # Try to get old line count from release branch
+            old_count=$(git show origin/release:"$name" 2>/dev/null | wc -l || echo "0")
             if [ "$old_count" -eq 0 ]; then
               delta="+$count"
             else
@@ -58,11 +59,11 @@ jobs:
             commit_msg="$commit_msg"$'\n'"$name: $count lines ($delta)"
           done
 
-          # Checkout existing releases branch (only snippets), or create orphan if first run
-          if git show-ref --verify --quiet refs/remotes/origin/releases; then
-            git checkout -B releases origin/releases
+          # Checkout existing release branch (only snippets), or create orphan if first run
+          if git show-ref --verify --quiet refs/remotes/origin/release; then
+            git checkout -B release origin/release
           else
-            git checkout --orphan releases
+            git checkout --orphan release
             git rm -rf . 2>/dev/null || true
           fi
 
@@ -70,4 +71,4 @@ jobs:
           cp out/*.snippet .
           git add *.snippet
           git commit -m "$commit_msg" || echo "no changes to commit"
-          git push origin releases --force
+          git push origin release --force

@@ -24,7 +24,7 @@ func LoadConfig(path string) (*Config, error) {
 		HTTPTimeoutSec: 30,
 		HTTPRetries:    2,
 		LogLevel:       "info",
-		ReleasesBranch: "releases",
+		ReleasesBranch: "release",
 	}
 	if err := yaml.Unmarshal(data, cfg); err != nil {
 		return nil, err

@@ -1,6 +1,6 @@
 # Quantumult X 规则片段生成器
 
-一个用 Go 编写的自动化工具，从多个上游规则源抓取、清洗、转换、去重并生成 Quantumult X 可用的 `*.snippet` 规则片段文件。通过 GitHub Actions 自动构建并发布到 `releases` 分支。
+一个用 Go 编写的自动化工具，从多个上游规则源抓取、清洗、转换、去重并生成 Quantumult X 可用的 `*.snippet` 规则片段文件。通过 GitHub Actions 自动构建并发布到 `release` 分支。
 
 ---
 
@@ -92,7 +92,7 @@ host,local.example.com
 
 ### 环境要求
 
-- Go 1.21+
+- Go 1.26+
 
 ### 构建
 
@@ -133,7 +133,7 @@ concurrency: 16          # 并发抓取数
 http_timeout_sec: 30     # HTTP 超时（秒）
 http_retries: 2          # HTTP 重试次数
 log_level: info          # 日志级别：debug/info/warn/error
-releases_branch: releases # 发布分支名
+releases_branch: release # 发布分支名
 ```
 
 ### 加速域名
@@ -202,7 +202,7 @@ rewrite 源文件中的 `hostname =` 行（MITM 主机名声明）会被提取�
 **流程**：
 1. 构建 Go 程序
 2. 运行生成器（注入 `ACCEL_DOMAIN` 仓库变量）
-3. 切换到 `releases` 分支（只含 snippet 文件）
+3. 切换到 `release` 分支（只含 snippet 文件）
 4. 提交变更，commit message 包含每个文件的行数变化：
 
 ```
@@ -220,7 +220,7 @@ rewrite.snippet: 1621 lines (+1)
 - 手动触发
 
 **功能**：
-- 将 `releases` 分支中超过 6 个月的提交压缩为单条 commit
+- 将 `release` 分支中超过 6 个月的提交压缩为单条 commit
 - 保留最近 6 个月的完整提交历史
 - 防止长期运行后提交历史过大
 
@@ -228,16 +228,16 @@ rewrite.snippet: 1621 lines (+1)
 
 ## 在 Quantumult X 中使用
 
-在 Quantumult X 配置中引用 `releases` 分支的 snippet 文件：
+在 Quantumult X 配置中引用 `release` 分支的 snippet 文件：
 
 ```ini
 [filter_remote]
-https://raw.githubusercontent.com/<your-username>/<repo>/releases/direct.snippet, tag=Direct, force-policy=direct, enabled=true
-https://raw.githubusercontent.com/<your-username>/<repo>/releases/proxy.snippet, tag=Proxy, force-policy=proxy, enabled=true
-https://raw.githubusercontent.com/<your-username>/<repo>/releases/reject.snippet, tag=Reject, force-policy=reject, enabled=true
+https://raw.githubusercontent.com/<your-username>/<repo>/release/direct.snippet, tag=Direct, force-policy=direct, enabled=true
+https://raw.githubusercontent.com/<your-username>/<repo>/release/proxy.snippet, tag=Proxy, force-policy=proxy, enabled=true
+https://raw.githubusercontent.com/<your-username>/<repo>/release/reject.snippet, tag=Reject, force-policy=reject, enabled=true
 
 [rewrite_remote]
-https://raw.githubusercontent.com/<your-username>/<repo>/releases/rewrite.snippet, tag=Rewrite, enabled=true
+https://raw.githubusercontent.com/<your-username>/<repo>/release/rewrite.snippet, tag=Rewrite, enabled=true
 ```
 
 ---
