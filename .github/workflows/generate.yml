@@ -34,9 +34,40 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git checkout -B releases
+
+          # Fetch existing releases branch to compute line deltas
+          git fetch origin releases 2>/dev/null || true
+
+          # Build commit message with per-file line counts and deltas
+          commit_msg="update snippets"
+          for f in out/*.snippet; do
+            name=$(basename "$f")
+            count=$(wc -l < "$f")
+            # Try to get old line count from releases branch
+            old_count=$(git show origin/releases:"$name" 2>/dev/null | wc -l || echo "0")
+            if [ "$old_count" -eq 0 ]; then
+              delta="+$count"
+            else
+              diff=$((count - old_count))
+              if [ "$diff" -ge 0 ]; then
+                delta="+$diff"
+              else
+                delta="$diff"
+              fi
+            fi
+            commit_msg="$commit_msg"$'\n'"$name: $count lines ($delta)"
+          done
+
+          # Checkout existing releases branch (only snippets), or create orphan if first run
+          if git show-ref --verify --quiet refs/remotes/origin/releases; then
+            git checkout -B releases origin/releases
+          else
+            git checkout --orphan releases
+            git rm -rf . 2>/dev/null || true
+          fi
+
+          # Copy snippet files and commit
           cp out/*.snippet .
-          git add *.snippet || true
-          lines=$(cat out/*.snippet | wc -l)
-          git commit -m "update snippets (${lines} lines)" || echo "no changes to commit"
+          git add *.snippet
+          git commit -m "$commit_msg" || echo "no changes to commit"
           git push origin releases --force
