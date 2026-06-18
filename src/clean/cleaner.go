@@ -4,6 +4,8 @@ import (
 	"bufio"
 	"io"
 	"strings"
+
+	"github.com/quantumult-x/gen/src/log"
 )
 
 func CleanLines(r io.Reader) <-chan string {
@@ -11,6 +13,7 @@ func CleanLines(r io.Reader) <-chan string {
 	go func() {
 		defer close(ch)
 		scanner := bufio.NewScanner(r)
+		scanner.Buffer(make([]byte, 0, 64*1024), 1024*1024)
 		for scanner.Scan() {
 			line := strings.TrimSpace(scanner.Text())
 			if line == "" || strings.HasPrefix(line, "#") || strings.HasPrefix(line, "//") || strings.HasPrefix(line, ";") {
@@ -22,6 +25,9 @@ func CleanLines(r io.Reader) <-chan string {
 				continue
 			}
 			ch <- line
+		}
+		if err := scanner.Err(); err != nil {
+			log.Warn("cleanlines: scanner error: %v", err)
 		}
 	}()
 	return ch

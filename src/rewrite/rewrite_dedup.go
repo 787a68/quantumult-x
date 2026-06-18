@@ -28,13 +28,99 @@ func isActionCompatible(existingCat, newCat string) bool {
 }
 
 type keptPattern struct {
-	pattern string
-	cat     string
+	pattern  string
+	normBody string
+	ci       bool
+	cat      string
 }
 
-func isCoveredByKept(pattern string, cat string, keptPatterns []keptPattern) bool {
+func isRedundantEscape(c byte) bool {
+	switch c {
+	case '/', ':', ';', '!', '#', '&', '=', '@', '%', ',', '~':
+		return true
+	}
+	return false
+}
+
+func stripRedundantEscapes(pattern string) string {
+	var b strings.Builder
+	b.Grow(len(pattern))
+	i := 0
+	for i < len(pattern) {
+		if pattern[i] == '\\' && i+1 < len(pattern) {
+			next := pattern[i+1]
+			if isRedundantEscape(next) {
+				b.WriteByte(next)
+				i += 2
+				continue
+			}
+			b.WriteByte('\\')
+			b.WriteByte(next)
+			i += 2
+			continue
+		}
+		b.WriteByte(pattern[i])
+		i++
+	}
+	return b.String()
+}
+
+func normalizePattern(pattern string) (string, bool) {
+	ci := false
+	p := pattern
+	if strings.HasPrefix(p, "(?i)") {
+		ci = true
+		p = p[4:]
+	} else if strings.HasPrefix(p, "(?I)") {
+		ci = true
+		p = p[4:]
+	}
+	p = strings.ReplaceAll(p, `\b`, "")
+	p = strings.ReplaceAll(p, `\B`, "")
+	p = stripRedundantEscapes(p)
+	return p, ci
+}
+
+func normalizeForOutput(pattern string) string {
+	return stripRedundantEscapes(pattern)
+}
+
+func guardPasses(normBody string) bool {
+	if len(normBody) >= 6 {
+		return true
+	}
+	if strings.Contains(normBody, "/") {
+		return true
+	}
+	if strings.HasPrefix(normBody, "^") {
+		return true
+	}
+	return false
+}
+
+func containsCI(hay, needle string, ci bool) bool {
+	if ci {
+		return strings.Contains(strings.ToLower(hay), strings.ToLower(needle))
+	}
+	return strings.Contains(hay, needle)
+}
+
+func isCoveredByKept(pattern string, ci bool, cat string, keptPatterns []keptPattern) bool {
+	newNorm, newCI := normalizePattern(pattern)
 	for _, kp := range keptPatterns {
-		if kp.pattern != "" && isActionCompatible(kp.cat, cat) && strings.Contains(pattern, kp.pattern) {
+		if kp.normBody == "" {
+			continue
+		}
+		if !isActionCompatible(kp.cat, cat) {
+			continue
+		}
+		if newCI && !kp.ci {
+			continue
+		}
+		if !guardPasses(kp.normBody) {
+			continue
+		}
+		if containsCI(newNorm, kp.normBody, kp.ci) {
 			return true
 		}
 	}
@@ -48,7 +134,7 @@ func tryBranchExpansion(pattern string, cat string, keptPatterns []keptPattern) 
 
 	var shortPatterns []keptPattern
 	for _, kp := range keptPatterns {
-		if len(kp.pattern) <= len(pattern) && isActionCompatible(kp.cat, cat) {
+		if len(kp.normBody) <= len(pattern) && isActionCompatible(kp.cat, cat) && guardPasses(kp.normBody) {
 			shortPatterns = append(shortPatterns, kp)
 		}
 	}
@@ -71,9 +157,13 @@ func tryBranchExpansion(pattern string, cat string, keptPatterns []keptPattern) 
 		var remaining []string
 		for _, branch := range branches {
 			expanded := newPattern[:absStart] + branch + newPattern[absEnd:]
+			expandedNorm, expandedCI := normalizePattern(expanded)
 			covered := false
 			for _, kp := range shortPatterns {
-				if kp.pattern != "" && strings.Contains(expanded, kp.pattern) {
+				if expandedCI && !kp.ci {
+					continue
+				}
+				if containsCI(expandedNorm, kp.normBody, kp.ci) {
 					covered = true
 					break
 				}
@@ -111,7 +201,7 @@ func RewriteSemanticDedup(lines []string, accelDomain string) ([]string, []strin
 	for _, line := range lines {
 		r := parseRewriteLine(line)
 
-		if isCoveredByKept(r.Pattern, r.Cat, keptPatterns) {
+		if isCoveredByKept(r.Pattern, patternHasCI(r.Pattern), r.Cat, keptPatterns) {
 			log.Debug("rewrite dedup removed: %s", line)
 			removed = append(removed, line)
 			continue
@@ -130,7 +220,20 @@ func RewriteSemanticDedup(lines []string, accelDomain string) ([]string, []strin
 			r.Pattern = newPattern
 		}
 
-		keptPatterns = append(keptPatterns, keptPattern{pattern: r.Pattern, cat: r.Cat})
+		normalizedOut := normalizeForOutput(r.Pattern)
+		if normalizedOut != r.Pattern {
+			log.Debug("rewrite dedup normalized escapes: %s -> %s", r.Pattern, normalizedOut)
+			line = normalizedOut + line[len(r.Pattern):]
+			r.Pattern = normalizedOut
+		}
+
+		normBody, ci := normalizePattern(r.Pattern)
+		keptPatterns = append(keptPatterns, keptPattern{
+			pattern:  r.Pattern,
+			normBody: normBody,
+			ci:       ci,
+			cat:      r.Cat,
+		})
 
 		if accelDomain != "" {
 			line = replaceGithubURLs(line, accelDomain)
@@ -138,6 +241,10 @@ func RewriteSemanticDedup(lines []string, accelDomain string) ([]string, []strin
 		kept = append(kept, line)
 	}
 	return kept, removed
+}
+
+func patternHasCI(pattern string) bool {
+	return strings.HasPrefix(pattern, "(?i)") || strings.HasPrefix(pattern, "(?I)")
 }
 
 func replaceGithubURLs(line, accelDomain string) string {
