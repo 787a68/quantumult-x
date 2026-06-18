@@ -13,12 +13,9 @@ func CleanLines(r io.Reader) <-chan string {
 		scanner := bufio.NewScanner(r)
 		for scanner.Scan() {
 			line := strings.TrimSpace(scanner.Text())
-if line == "" || strings.HasPrefix(line, "#") || strings.HasPrefix(line, "//") || strings.HasPrefix(line, ";") {
-			continue
-		}
-		if strings.HasPrefix(line, "#!") {
-			continue
-		}
+			if line == "" || strings.HasPrefix(line, "#") || strings.HasPrefix(line, "//") || strings.HasPrefix(line, ";") {
+				continue
+			}
 			line = stripTrailingComment(line)
 			line = strings.TrimSpace(line)
 			if line == "" {

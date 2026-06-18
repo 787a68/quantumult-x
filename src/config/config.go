@@ -29,5 +29,24 @@ func LoadConfig(path string) (*Config, error) {
 	if err := yaml.Unmarshal(data, cfg); err != nil {
 		return nil, err
 	}
+	cfg.Validate()
 	return cfg, nil
+}
+
+func (c *Config) Validate() {
+	if c.Concurrency < 1 {
+		c.Concurrency = 1
+	}
+	if c.HTTPTimeoutSec < 1 {
+		c.HTTPTimeoutSec = 30
+	}
+	if c.HTTPRetries < 0 {
+		c.HTTPRetries = 0
+	}
+	if c.LogLevel == "" {
+		c.LogLevel = "info"
+	}
+	if c.ReleasesBranch == "" {
+		c.ReleasesBranch = "release"
+	}
 }

@@ -6,21 +6,22 @@ type SemanticIndex struct {
 	suffixSet  map[string]struct{}
 	hostSet    map[string]struct{}
 	keywords   []string
-	ipCidrs    []string
-	ip6Cidrs   []string
-	ipASNs     map[string]struct{}
+	ipCidrSet  map[string]struct{}
+	ip6CidrSet map[string]struct{}
+	ipASNSet   map[string]struct{}
+	geoipSet   map[string]struct{}
 	wildcards  map[string]struct{}
 }
 
 func NewSemanticIndex() *SemanticIndex {
 	return &SemanticIndex{
-		suffixSet: make(map[string]struct{}),
-		hostSet:   make(map[string]struct{}),
-		keywords:  make([]string, 0),
-		ipCidrs:   make([]string, 0),
-		ip6Cidrs:  make([]string, 0),
-		ipASNs:    make(map[string]struct{}),
-		wildcards: make(map[string]struct{}),
+		suffixSet:  make(map[string]struct{}),
+		hostSet:    make(map[string]struct{}),
+		ipCidrSet:  make(map[string]struct{}),
+		ip6CidrSet: make(map[string]struct{}),
+		ipASNSet:   make(map[string]struct{}),
+		geoipSet:   make(map[string]struct{}),
+		wildcards:  make(map[string]struct{}),
 	}
 }
 
@@ -35,11 +36,13 @@ func (si *SemanticIndex) Add(r Rule) {
 	case "host-wildcard":
 		si.wildcards[r.Value] = struct{}{}
 	case "ip-cidr":
-		si.ipCidrs = append(si.ipCidrs, r.Value)
+		si.ipCidrSet[r.Value] = struct{}{}
 	case "ip6-cidr":
-		si.ip6Cidrs = append(si.ip6Cidrs, r.Value)
+		si.ip6CidrSet[r.Value] = struct{}{}
 	case "ip-asn":
-		si.ipASNs[r.Value] = struct{}{}
+		si.ipASNSet[r.Value] = struct{}{}
+	case "geoip":
+		si.geoipSet[r.Value] = struct{}{}
 	}
 }
 
@@ -51,50 +54,58 @@ func (si *SemanticIndex) IsCovered(r Rule) bool {
 		}
 		parts := strings.Split(r.Value, ".")
 		for i := 1; i < len(parts); i++ {
-			parent := strings.Join(parts[i:], ".")
-			if _, ok := si.suffixSet[parent]; ok {
+			if _, ok := si.suffixSet[strings.Join(parts[i:], ".")]; ok {
 				return true
 			}
 		}
-		for _, kw := range si.keywords {
-			if strings.Contains(r.Value, kw) {
-				return true
-			}
-		}
-		return false
+		return si.coveredByKeyword(r.Value)
 	case "host":
 		if _, ok := si.hostSet[r.Value]; ok {
 			return true
 		}
 		parts := strings.Split(r.Value, ".")
 		for i := 1; i < len(parts); i++ {
-			suffix := "." + strings.Join(parts[i:], ".")
-			if _, ok := si.suffixSet[suffix[1:]]; ok {
+			if _, ok := si.suffixSet[strings.Join(parts[i:], ".")]; ok {
 				return true
 			}
 		}
-		for _, kw := range si.keywords {
-			if strings.Contains(r.Value, kw) {
-				return true
-			}
-		}
-		return false
+		return si.coveredByKeyword(r.Value)
 	case "host-keyword":
-		for _, kw := range si.keywords {
-			if strings.Contains(r.Value, kw) {
-				return true
-			}
+		return si.coveredByKeyword(r.Value)
+	case "host-wildcard":
+		if _, ok := si.wildcards[r.Value]; ok {
+			return true
 		}
 		return false
 	case "ip-cidr":
-		for _, kw := range si.keywords {
-			if strings.Contains(r.Value, kw) {
-				return true
-			}
+		if _, ok := si.ipCidrSet[r.Value]; ok {
+			return true
 		}
 		return false
-	case "ip6-cidr", "ip-asn":
+	case "ip6-cidr":
+		if _, ok := si.ip6CidrSet[r.Value]; ok {
+			return true
+		}
 		return false
+	case "ip-asn":
+		if _, ok := si.ipASNSet[r.Value]; ok {
+			return true
+		}
+		return false
+	case "geoip":
+		if _, ok := si.geoipSet[r.Value]; ok {
+			return true
+		}
+		return false
+	}
+	return false
+}
+
+func (si *SemanticIndex) coveredByKeyword(value string) bool {
+	for _, kw := range si.keywords {
+		if strings.Contains(value, kw) {
+			return true
+		}
 	}
 	return false
 }

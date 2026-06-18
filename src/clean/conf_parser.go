@@ -25,7 +25,7 @@ func ParseConf(path string) (*ConfSpec, error) {
 	scanner := bufio.NewScanner(f)
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
-		if line == "" || strings.HasPrefix(line, "#") || strings.HasPrefix(line, "//") {
+		if line == "" || strings.HasPrefix(line, "#") || strings.HasPrefix(line, "//") || strings.HasPrefix(line, ";") {
 			continue
 		}
 		if strings.HasPrefix(line, "-") {
@@ -52,4 +52,31 @@ func parseUpstream(line string) util.UpstreamSource {
 		src.Format = "qx"
 	}
 	return src
+}
+
+func (s *ConfSpec) InsertHeadRules(lines []string) []string {
+	if len(s.HeadRules) == 0 {
+		return lines
+	}
+	return append(s.HeadRules, lines...)
+}
+
+func (s *ConfSpec) ApplyExcludes(lines []string) []string {
+	if len(s.Excludes) == 0 {
+		return lines
+	}
+	var result []string
+	for _, line := range lines {
+		excluded := false
+		for _, exc := range s.Excludes {
+			if strings.HasPrefix(line, exc) {
+				excluded = true
+				break
+			}
+		}
+		if !excluded {
+			result = append(result, line)
+		}
+	}
+	return result
 }

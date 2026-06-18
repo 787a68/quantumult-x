@@ -4,6 +4,9 @@ import "strings"
 
 func TransformSetLine(line string) (string, error) {
 	value := strings.TrimSpace(line)
+	if strings.Contains(value, ",") {
+		return "", errUnrecognized
+	}
 	if strings.HasPrefix(value, ".") {
 		value = strings.TrimPrefix(value, ".")
 	}

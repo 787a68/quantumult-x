@@ -6,7 +6,7 @@ import (
 	"github.com/quantumult-x/gen/src/log"
 )
 
-func SemanticDedup(lines []string) ([]string, []string, error) {
+func SemanticDedup(lines []string) ([]string, []string) {
 	index := NewSemanticIndex()
 	var kept, removed []string
 	for _, line := range lines {
@@ -23,7 +23,7 @@ func SemanticDedup(lines []string) ([]string, []string, error) {
 		kept = append(kept, line)
 		index.Add(*r)
 	}
-	return kept, removed, nil
+	return kept, removed
 }
 
 func parseRule(line string) *Rule {

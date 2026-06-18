@@ -126,8 +126,9 @@ ACCEL_DOMAIN=your-proxy.example.com ./quantumult-x --conf-dir . --out-dir out
 | `--conf-dir` | `.` | `.conf` 文件所在目录 |
 | `--out-dir` | `out` | 输出目录 |
 | `--config` | `src/config/config.yaml` | 配置文件路径 |
-| `--dry-run` | `false` | 只生成不发布 |
 | `--examples` | `false` | 使用 `examples/` 本地文件代替网络抓取 |
+
+> 生成器只负责在本地生成 `*.snippet` 文件；发布到 `release` 分支由 GitHub Actions 完成，因此不再需要 `--dry-run`。
 
 ### 配置文件 `config.yaml`
 
@@ -259,14 +260,16 @@ quantumult-x/
 │   └── cleanup.yml          # 月度历史清理
 ├── doc/                     # 参考文档
 └── src/
-    ├── main.go              # CLI 入口与处理管线
-    ├── config/              # 配置加载
+    ├── main.go              # CLI 入口与处理管线编排
+    ├── config/              # 配置加载与校验
     ├── fetch/               # 并发 HTTP 抓取
-    ├── clean/               # conf 解析与行清洗
-    ├── transform/           # 格式转换 (rule/set/qx)
+    ├── clean/               # conf 解析、行清洗、HeadRules/Excludes 应用
+    ├── transform/           # 格式转换 (rule/set/qx) 与混合格式回退
     ├── dedup/               # 文本去重与语义去重
-    ├── rewrite/             # rewrite 合并/去重/加速替换
-    ├── io/                  # 文件写入与发布
+    ├── rewrite/             # rewrite 合并/去重/加速替换/处理流水线
+    ├── rules/               # 规则分组排序
+    ├── pipeline/            # 上游源抓取+清洗+转换流水线
+    ├── io/                  # snippet 原子写入
     ├── log/                 # 日志
     └── util/                # 共享类型
 ```

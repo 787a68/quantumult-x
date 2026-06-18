@@ -3,6 +3,7 @@ package fetch
 import (
 	"io"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/quantumult-x/gen/src/log"
@@ -33,5 +34,5 @@ type errHTTP struct {
 }
 
 func (e errHTTP) Error() string {
-	return "HTTP " + string(rune(e.status)) + " for " + e.url
+	return "HTTP " + strconv.Itoa(e.status) + " for " + e.url
 }

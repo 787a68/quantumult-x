@@ -16,9 +16,8 @@ const (
 )
 
 type Logger struct {
-	mu       sync.Mutex
-	level    Level
-	jsonMode bool
+	mu    sync.Mutex
+	level Level
 }
 
 var defaultLogger = &Logger{level: InfoLevel}
@@ -38,42 +37,27 @@ func SetLevel(lvl string) {
 	}
 }
 
-func SetJSONMode(enabled bool) {
-	defaultLogger.jsonMode = enabled
-}
-
 func output(lvl Level, format string, args ...interface{}) {
 	defaultLogger.mu.Lock()
 	defer defaultLogger.mu.Unlock()
 	if lvl < defaultLogger.level {
 		return
 	}
-	prefix := ""
+	fmt.Fprintf(os.Stdout, "%s %s\n", levelPrefix(lvl), fmt.Sprintf(format, args...))
+}
+
+func levelPrefix(lvl Level) string {
 	switch lvl {
 	case DebugLevel:
-		prefix = "[DEBUG]"
+		return "[DEBUG]"
 	case InfoLevel:
-		prefix = "[INFO]"
+		return "[INFO]"
 	case WarnLevel:
-		prefix = "[WARN]"
+		return "[WARN]"
 	case ErrorLevel:
-		prefix = "[ERROR]"
+		return "[ERROR]"
 	}
-	msg := fmt.Sprintf(format, args...)
-	if defaultLogger.jsonMode {
-	 lvlStr := "info"
-		switch lvl {
-		case DebugLevel:
-			lvlStr = "debug"
-		case WarnLevel:
-			lvlStr = "warn"
-		case ErrorLevel:
-			lvlStr = "error"
-	 }
-		fmt.Fprintf(os.Stdout, `{"level":"%s","msg":"%s"}`+"\n", lvlStr, msg)
-	} else {
-		fmt.Fprintf(os.Stdout, "%s %s\n", prefix, msg)
-	}
+	return "[INFO]"
 }
 
 func Debug(format string, args ...interface{}) { output(DebugLevel, format, args...) }
