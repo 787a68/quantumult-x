@@ -78,16 +78,15 @@ func runAll(confDir, outDir string, cfg *config.Config, dryRun, useExamples bool
 			return fmt.Errorf("process sources for %s: %w", ci.filename, err)
 		}
 
-		deduped, textRemoved := dedup.TextDedup(allLines)
-		log.Info("text dedup: %d -> %d (removed %d)", len(allLines), len(deduped), textRemoved)
-
 		if ci.isRewrite {
-			deduped = insertHeadRules(deduped, spec.HeadRules)
-			if err := processRewrite(deduped, spec, outDir, snippetName, accelDomain); err != nil {
+			if err := processRewrite(allLines, spec, outDir, snippetName, accelDomain); err != nil {
 				return err
 			}
 			continue
 		}
+
+		deduped, textRemoved := dedup.TextDedup(allLines)
+		log.Info("text dedup: %d -> %d (removed %d)", len(allLines), len(deduped), textRemoved)
 
 		deduped = sortRules(deduped)
 		deduped = insertHeadRules(deduped, spec.HeadRules)
@@ -124,14 +123,23 @@ func processRewrite(lines []string, spec *clean.ConfSpec, outDir, snippetName, a
 			rewriteLines = append(rewriteLines, line)
 		}
 	}
+	log.Info("rewrite: %d rules, %d hostname entries", len(rewriteLines), len(hostnameEntries))
 
 	sources := [][]string{rewriteLines}
-	merged, err := rewrite.MergeRewrite(sources)
+	sorted, err := rewrite.MergeRewrite(sources)
 	if err != nil {
 		return fmt.Errorf("merge rewrite: %w", err)
 	}
-	kept, removed := rewrite.RewriteSemanticDedup(merged, accelDomain)
-	log.Info("rewrite dedup: %d -> %d (removed %d)", len(merged), len(kept), len(removed))
+	log.Info("rewrite sort: %d lines", len(sorted))
+
+	sorted = insertHeadRules(sorted, spec.HeadRules)
+
+	deduped, textRemoved := dedup.TextDedup(sorted)
+	log.Info("rewrite text dedup: %d -> %d (removed %d)", len(sorted), len(deduped), textRemoved)
+
+	kept, removed := rewrite.RewriteSemanticDedup(deduped, accelDomain)
+	log.Info("rewrite semantic dedup: %d -> %d (removed %d)", len(deduped), len(kept), len(removed))
+
 	kept = applyExcludes(kept, spec.Excludes)
 
 	if len(hostnameEntries) > 0 {
@@ -164,10 +172,22 @@ func processLocalSources(spec *clean.ConfSpec, confDir string, isRewrite bool) (
 	var allLines []string
 	examplesDir := filepath.Join(confDir, "examples")
 	for _, src := range spec.Upstreams {
-		localPath := filepath.Join(examplesDir, filepath.Base(src.URL))
-		f, err := os.Open(localPath)
-		if err != nil {
-			log.Warn("local source not found: %s: %v", localPath, err)
+		base := filepath.Base(src.URL)
+		candidates := []string{
+			filepath.Join(examplesDir, base),
+			filepath.Join(examplesDir, base+".txt"),
+		}
+		var f *os.File
+		var opened bool
+		for _, p := range candidates {
+			if fp, err := os.Open(p); err == nil {
+				f = fp
+				opened = true
+				break
+			}
+		}
+		if !opened {
+			log.Warn("local source not found: %s (tried %v)", base, candidates)
 			continue
 		}
 		lines := readAndTransform(f, src.Format, isRewrite)
@@ -284,7 +304,9 @@ func sortRules(lines []string) []string {
 
 	var result []string
 	for _, k := range keys {
-		result = append(result, typeGroups[k]...)
+		group := typeGroups[k]
+		sort.Strings(group)
+		result = append(result, group...)
 	}
 	return result
 }

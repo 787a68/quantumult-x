@@ -1,7 +1,6 @@
 package rewrite
 
 import (
-	"regexp"
 	"sort"
 	"strings"
 )
@@ -25,9 +24,9 @@ func catOrder(cat string) int {
 		return 3
 	case "reject-array":
 		return 4
-	case "url302":
+	case "302":
 		return 5
-	case "url307":
+	case "307":
 		return 6
 	case "request-header":
 		return 7
@@ -47,78 +46,83 @@ func catOrder(cat string) int {
 		return 14
 	case "script-analyze-echo-response":
 		return 15
-	case "response-header":
+	case "script-echo-response":
 		return 16
-	case "response-body":
+	case "response-header":
 		return 17
+	case "response-body":
+		return 18
+	case "header":
+		return 19
 	default:
 		return 20
 	}
 }
 
-var urlPrefixRe = regexp.MustCompile(`^(?i)(https?://)`)
-
-func parseRewriteURLPattern(line string) (pattern string, rest string, found bool) {
-	loc := urlPrefixRe.FindStringIndex(line)
-	if loc == nil {
-		m := strings.SplitN(line, " ", 2)
-		if len(m) < 2 {
-			return line, "", false
-		}
-		return m[0], m[1], true
+func isRejectFamilyAction(action string) bool {
+	switch action {
+	case "reject", "reject-200", "reject-img", "reject-dict", "reject-array":
+		return true
+	default:
+		return false
 	}
-	urlEnd := loc[1]
-	restStr := line[urlEnd:]
-	for i, c := range restStr {
-		if c == ' ' {
-			pattern = line[: urlEnd + i]
-			restStr = restStr[i + 1:]
-			return pattern, restStr, true
-		}
-	}
-	return line, "", true
 }
 
 func parseRewriteLine(line string) RewriteRule {
 	r := RewriteRule{Line: line}
 
-	if strings.Contains(line, " url ") || strings.Contains(line, " url-and-header ") {
-		sep := " url "
-		if strings.Contains(line, " url-and-header ") {
-			sep = " url-and-header "
-		}
-		parts := strings.SplitN(line, sep, 2)
-		if len(parts) < 2 {
-			r.Cat = "unknown"
-			r.Pattern = line
-			return r
-		}
-		r.Pattern = parts[0]
-		actionPart := parts[1]
+	if strings.HasPrefix(line, "hostname") {
+		r.Cat = "hostname"
+		r.Pattern = line
+		return r
+	}
+
+	sep := " url "
+	sepIdx := strings.Index(line, sep)
+	isURLAndHeader := false
+	if sepIdx < 0 {
+		sep = " url-and-header "
+		sepIdx = strings.Index(line, sep)
+		isURLAndHeader = sepIdx >= 0
+	}
+
+	if sepIdx >= 0 {
+		r.Pattern = line[:sepIdx]
+		actionPart := line[sepIdx+len(sep):]
 
 		actionFields := strings.SplitN(actionPart, " ", 2)
-		action := actionFields[0]
+		action := strings.ToLower(actionFields[0])
 		r.Cat = action
 
+		if isURLAndHeader && isRejectFamilyAction(action) {
+			r.Cat = "reject"
+		}
+
+		normalizedActionPart := action
 		if len(actionFields) > 1 {
 			r.SubType = actionFields[1]
+			normalizedActionPart += " " + actionFields[1]
 		}
+		r.Line = r.Pattern + sep + normalizedActionPart
+		return r
+	}
+
+	if idx := strings.Index(line, " - "); idx >= 0 {
+		r.Pattern = line[:idx]
+		actionPart := line[idx+3:]
+		action := strings.ToLower(strings.TrimSpace(actionPart))
+		r.Cat = action
+		r.Line = r.Pattern + " url " + action
 		return r
 	}
 
 	fields := strings.Fields(line)
-	if len(fields) >= 3 && strings.HasPrefix(fields[0], "^") {
+	if len(fields) >= 2 {
 		r.Pattern = fields[0]
-		if strings.HasPrefix(fields[1], "url") {
-			r.Cat = fields[1]
-			if len(fields) > 2 {
-				r.SubType = strings.Join(fields[2:], " ")
-			}
-		} else {
-			r.Cat = fields[1]
-			if len(fields) > 2 {
-				r.SubType = strings.Join(fields[2:], " ")
-			}
+		action := strings.ToLower(fields[1])
+		r.Cat = action
+		if len(fields) > 2 {
+			r.SubType = strings.Join(fields[2:], " ")
 		}
 		return r
 	}

@@ -9,18 +9,49 @@ import (
 
 var githubRe = regexp.MustCompile(`https://(github\.com|raw\.github(?:usercontent)?\.com)(/[^\s"]+)`)
 
+func isRejectFamily(cat string) bool {
+	switch cat {
+	case "reject", "reject-200", "reject-img", "reject-dict", "reject-array":
+		return true
+	default:
+		return false
+	}
+}
+
+func isActionCompatible(existingCat, newCat string) bool {
+	if isRejectFamily(existingCat) {
+		return true
+	}
+	return existingCat == newCat
+}
+
+type keptPattern struct {
+	pattern string
+	cat     string
+}
+
 func RewriteSemanticDedup(lines []string, accelDomain string) ([]string, []string) {
-	patternSeen := make(map[string]struct{})
 	var kept, removed []string
+	var keptPatterns []keptPattern
+
 	for _, line := range lines {
 		r := parseRewriteLine(line)
-		key := r.Cat + "|" + r.Pattern
-		if _, exists := patternSeen[key]; exists {
-			log.Debug("rewrite dedup removed: %s", line)
+
+		covered := false
+		for _, kp := range keptPatterns {
+			if kp.pattern != "" && isActionCompatible(kp.cat, r.Cat) && strings.Contains(r.Pattern, kp.pattern) {
+				log.Debug("rewrite dedup removed: %s (covered by pattern %s)", line, kp.pattern)
+				covered = true
+				break
+			}
+		}
+
+		if covered {
 			removed = append(removed, line)
 			continue
 		}
-		patternSeen[key] = struct{}{}
+
+		keptPatterns = append(keptPatterns, keptPattern{pattern: r.Pattern, cat: r.Cat})
 
 		if accelDomain != "" {
 			line = replaceGithubURLs(line, accelDomain)

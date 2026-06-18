@@ -34,11 +34,14 @@
   追加策略后缀 + 原子写入 *.snippet
 ```
 
-**rewrite 文件**额外处理：
-- 解析 QX rewrite 格式（`^URL_PATTERN url ACTION [args]`）
-- 按 URL pattern 语义去重
-- 替换 GitHub/raw 链接为加速域名
-- 提取 `hostname =` 行，去重排序后追加到文件底部
+**rewrite 文件**处理流程：
+1. 分离 `hostname =` 行
+2. 按 action 类别排序，同类内按字母序
+3. 插入 HeadRules 到最前面
+4. 文本去重（完全匹配）
+5. 语义去重（子串覆盖，reject 类覆盖任意类型，其他仅组内）+ 加速域名替换
+6. 应用 Excludes 前缀排除
+7. 追加空行 + `hostname =` 去重排序后的域名
 
 ---
 
