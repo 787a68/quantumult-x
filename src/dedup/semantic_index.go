@@ -80,16 +80,8 @@ func (si *SemanticIndex) IsCovered(r Rule) bool {
 		}
 		return false
 	case "host-keyword":
-		if _, ok := si.suffixSet[r.Value]; ok {
-			return true
-		}
 		for _, kw := range si.keywords {
-			if kw == r.Value {
-				return true
-			}
-		}
-		for h := range si.hostSet {
-			if strings.Contains(h, r.Value) {
+			if strings.Contains(r.Value, kw) {
 				return true
 			}
 		}

@@ -14,6 +14,7 @@ type RewriteRule struct {
 
 func catOrder(cat string) int {
 	switch cat {
+	// Group 0: reject
 	case "reject":
 		return 0
 	case "reject-img":
@@ -24,38 +25,49 @@ func catOrder(cat string) int {
 		return 3
 	case "reject-array":
 		return 4
+
+	// Group 1: redirect
 	case "302":
-		return 5
+		return 100
 	case "307":
-		return 6
+		return 101
+
+	// Group 2: request (sub: header=0, echo=1, analyze=2, body=3, jsonjq=4, script=5)
 	case "request-header":
-		return 7
+		return 200
 	case "request-body":
-		return 8
-	case "echo-response":
-		return 9
-	case "jsonjq-response-body":
-		return 10
+		return 203
+	case "jsonjq-request-body":
+		return 204
 	case "script-request-header":
-		return 11
+		return 205
 	case "script-request-body":
-		return 12
-	case "script-response-header":
-		return 13
-	case "script-response-body":
-		return 14
-	case "script-analyze-echo-response":
-		return 15
-	case "script-echo-response":
-		return 16
+		return 205
+
+	// Group 3: response (sub: header=0, echo=1, analyze=2, body=3, jsonjq=4, script=5)
 	case "response-header":
-		return 17
+		return 300
+	case "echo-response":
+		return 301
+	case "script-echo-response":
+		return 301
+	case "script-analyze-echo-response":
+		return 302
 	case "response-body":
-		return 18
+		return 303
+	case "jsonjq-response-body":
+		return 304
+	case "script-response-header":
+		return 305
+	case "script-response-body":
+		return 305
+
+	// bare header → request header
 	case "header":
-		return 19
+		return 200
+
 	default:
-		return 20
+		return 400
 	}
 }
 

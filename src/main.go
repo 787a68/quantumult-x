@@ -305,10 +305,33 @@ func sortRules(lines []string) []string {
 	var result []string
 	for _, k := range keys {
 		group := typeGroups[k]
-		sort.Strings(group)
+		sort.SliceStable(group, func(i, j int) bool {
+			return domainSortKey(group[i]) < domainSortKey(group[j])
+		})
 		result = append(result, group...)
 	}
 	return result
+}
+
+func domainSortKey(line string) string {
+	parts := strings.SplitN(line, ",", 2)
+	if len(parts) < 2 {
+		return line
+	}
+	ruleType := parts[0]
+	value := parts[1]
+
+	switch ruleType {
+	case "host-suffix", "host":
+		domains := strings.Split(value, ".")
+		reversed := make([]string, len(domains))
+		for i, d := range domains {
+			reversed[len(domains)-1-i] = d
+		}
+		return strings.Join(reversed, ".")
+	default:
+		return value
+	}
 }
 
 func insertHeadRules(lines, headRules []string) []string {
