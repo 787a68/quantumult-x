@@ -39,9 +39,42 @@
 2. 按 action 类别排序，同类内按字母序
 3. 插入 HeadRules 到最前面
 4. 文本去重（完全匹配）
-5. 语义去重（子串覆盖，reject 类覆盖任意类型，其他仅组内）+ 加速域名替换
-6. 应用 Excludes 前缀排除
-7. 追加空行 + `hostname =` 去重排序后的域名
+5. 语义去重（pattern 归一化 + 子串覆盖 + reject 类覆盖任意类型 + 分支展开）+ 加速域名替换
+6. 冗余转义归一化输出（`\/`→`/` 等冗余反斜杠转义剥离，保留 `\.`/`\d` 等语义转义）
+7. 应用 Excludes 前缀排除
+8. 追加空行 + `hostname =` 去重排序后的域名
+
+### rewrite pattern 归一化
+
+rewrite 去重比较前会对 pattern 做归一化，使不同写法的等价 pattern 能互相识别：
+
+| 归一化 | 示例 | 说明 |
+|--------|------|------|
+| `\/` → `/` | `^https:\/\/x.com` ≡ `^https://x.com` | `/` 在正则中非元字符，`\/` 冗余 |
+| `\:` `\;` `\!` `\#` `\&` `\=` `\@` `\%` `\,` `\~` → 去反斜杠 | 同上 | 这些字符非元字符，转义冗余 |
+| 剥离 `(?i)` 并记录大小写不敏感标志 | `(?i)\b/ad/` → body=`/ad/`, ci=true | 用于判定覆盖方向 |
+| 剥离 `\b` `\B` | `\b/ad/` → `/ad/` | 词边界在 `/` 定界场景下由 `/` 天然替代 |
+
+**不动的转义**（有真实语义）：`\.` `\*` `\+` `\?` `\^` `\$` `\(` `\)` `\[` `\]` `\{` `\}` `\|` `\\` `\d` `\w` `\s` `\b`（比较时剥离，输出时保留）等。
+
+输出时会剥离冗余转义（第 6 步），使最终 `rewrite.snippet` 中不再出现 `\/` 等冗余反斜杠。
+
+### `(?i)` 大小写不敏感方向判定
+
+当 pattern 含 `(?i)` 标志时，覆盖判定遵循方向规则：
+
+| 已保留 (kept) | 新进 (new) | 判定 |
+|---------------|------------|------|
+| 有 `(?i)` | 无 `(?i)` | kept 更宽 → 删除 new ✅ |
+| 无 `(?i)` | 有 `(?i)` | new 更宽 → **不删除** ❌ |
+| 都有或都无 | — | 正常归一化比较 |
+
+### 安全守卫
+
+为防止短 pattern 误删无关规则，仅当 kept pattern 满足以下条件之一时才触发子串删除：
+- 长度 ≥ 6 字符
+- 含 `/`
+- 以 `^` 开头
 
 ---
 
@@ -167,7 +200,48 @@ releases_branch: release # 发布分支名
 | `host-suffix,example.com` | `host,sub.example.com` | ✅ 删除 | suffix 包含 host |
 | `host-suffix,example.com` | `host-suffix,sub.example.com` | ✅ 删除 | 父域名已覆盖 |
 
-头部规则（HeadRules）插入到列表最前面，因此优先级最高。
+头部规则（HeadRules）插入到列表最前面，因此优先级最高。可通过在 `.conf` 文件中书写 `host-keyword,xxx,reject` 形式的 headrule 来批量覆盖上游规则。
+
+### reject headrules 示例
+
+`reject.conf` 中通过 14 条 `host-keyword` headrules 覆盖广告/追踪域名：
+
+```
+host-keyword,adserv,reject
+host-keyword,advert,reject
+host-keyword,adsdk,reject
+host-keyword,adx,reject
+host-keyword,adtarget,reject
+host-keyword,adsys,reject
+host-keyword,beacon,reject
+host-keyword,tracker,reject
+host-keyword,umeng,reject
+host-keyword,dsp,reject
+host-keyword,rtb,reject
+host-keyword,adnet,reject
+host-keyword,admob,reject
+host-keyword,pangolin,reject
+```
+
+### rewrite headrules 示例
+
+`rewrite.conf` 中通过正则 pattern headrules 覆盖上游 URL 重写规则：
+
+```
+/ad/ url reject
+(?i)\b/ad/ url reject
+(?i)\b/ads/ url reject
+(?i)\b/adv/ url reject
+(?i)\b/advert/ url reject
+(?i)\b/adx/ url reject
+(?i)\b/ad\? url reject
+(?i)\b/ads\? url reject
+(?i)\badvertisement url reject
+(?i)\badvertising url reject
+(?i)\bsplash_screen url reject
+```
+
+这些通用 pattern 会覆盖所有含 `/ad/`、`/ads/`、`/advert/` 等路径段的上游具体 URL 规则。
 
 ---
 
