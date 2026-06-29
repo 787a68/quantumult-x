@@ -1,16 +1,25 @@
+/**
+ * @fileoverview Clash-to-QX resource parser: converts proxy nodes from
+ *                Clash subscription content to Quantumult X server format.
+ *
+ * @supported Quantumult X (v1.0.10-build277+)
+ *
+ * The rewrite rule sets User-Agent to "ClashMeta" before the request is sent,
+ * so the endpoint returns Clash config. The parser only does the conversion.
+ * Other subscriptions are unaffected (rewrite only matches this URL).
+ */
+
 var BODY = $resource && $resource.content ? $resource.content : '';
 
 if (!BODY) {
     $done({ error: 'empty response body' });
 } else {
 
-    // ---------- Pre-compiled regexes ----------
     var INLINE_RE = /-\s*\{([\s\S]*?)\}/g;
     var BLOCK_SPLIT_RE = /^\-\s*(?!\{)/gm;
     var KV_LINE_RE = /^\s*([a-zA-Z0-9\-_]+):\s*(.*)$/;
 
-    // ---------- Utility functions ----------
-    function cleanString(v) {
+    var cleanString = function (v) {
         if (v === undefined || v === null) return '';
         var s = String(v).trim();
         if (!s) return '';
@@ -20,9 +29,9 @@ if (!BODY) {
         }
         if (s === "''" || s === '""') return '';
         return s;
-    }
+    };
 
-    function parseInlineObject(text) {
+    var parseInlineObject = function (text) {
         var obj = Object.create(null);
         var parts = text.split(/,(?=(?:[^'"]|'[^']*'|"[^"]*")*$)/);
         for (var i = 0; i < parts.length; i++) {
@@ -37,9 +46,9 @@ if (!BODY) {
             obj[k] = v;
         }
         return obj;
-    }
+    };
 
-    function parseBlockObject(blockText) {
+    var parseBlockObject = function (blockText) {
         var obj = Object.create(null);
         var lines = blockText.split('\n');
         for (var i = 0; i < lines.length; i++) {
@@ -64,23 +73,17 @@ if (!BODY) {
             obj[k] = v;
         }
         return obj;
-    }
+    };
 
-    function parseBooleanField(raw) {
+    var parseBooleanField = function (raw) {
         if (raw === undefined || raw === null) return { present: false, value: null };
         var s = String(raw).trim().toLowerCase();
         if (s === '') return { present: true, value: null };
         if (s === 'true' || s === '1' || s === 'yes') return { present: true, value: true };
         if (s === 'false' || s === '0' || s === 'no') return { present: true, value: false };
         return { present: true, value: null };
-    }
+    };
 
-    // ---------- Protocol handlers ----------
-    // Each handler receives the parsed raw object from Clash config and returns
-    // an array of QX server lines. Register new protocols via:
-    //   handlers.<type> = function(raw) { ... return [...lines]; };
-    // or:
-    //   registerHandler('<type>', function(raw) { ... });
     var handlers = Object.create(null);
 
     handlers.anytls = function (raw) {
@@ -130,11 +133,11 @@ if (!BODY) {
         return out;
     };
 
-    function registerHandler(typeName, fn) {
+    var registerHandler = function (typeName, fn) {
         if (!typeName || typeof fn !== 'function') return false;
         handlers[typeName] = fn;
         return true;
-    }
+    };
 
     // ---------- Stub handlers for future extension ----------
     // Uncomment and implement to support more Clash proxy types.
@@ -163,7 +166,6 @@ if (!BODY) {
     //     return [];
     // };
 
-    // ---------- Main parse loop ----------
     var out = [];
     var m;
 
@@ -211,4 +213,4 @@ if (!BODY) {
         $done({ content: out.join('\n') });
     }
 
-} // end if (BODY)
+}
