@@ -196,7 +196,9 @@ policies:                # 策略名称（可通过环境变量 POLICY_DIRECT/PO
 
 ### 策略变量
 
-通过环境变量 `POLICY_DIRECT`、`POLICY_PROXY`、`POLICY_REJECT` 自定义 snippet 文件中的策略后缀名称，也可在 `config.yaml` 的 `policies` 段配置。
+通过环境变量 `POLICY_DIRECT`、`POLICY_PROXY`、`POLICY_REJECT` 自定义 snippet 文件中的策略后缀名称，也可在 `config.yaml` 的 `policies` 段配置。环境变量优先级高于配置文件。
+
+在 GitHub Actions 中，这些变量通过仓库 Variables（`Settings → Secrets and variables → Actions → Variables`）注入，`generate.yml` 会自动传递给生成器。
 
 ```
 # 默认输出
@@ -208,7 +210,7 @@ host-keyword,adserv,AdBlock
 host-suffix,google.com,MyProxy
 ```
 
-已有默认策略后缀（`,direct`/`,proxy`/`,reject`）的行会被**替换**为新策略名，而非追加。`ip-cidr,...,no-resolve` 等非策略后缀不受影响。
+已有默认策略后缀（`,direct`/`,proxy`/`,reject`）的行会被**替换**为新策略名，而非追加。`ip-cidr,...,no-resolve` 等非策略后缀不受影响。未设置策略变量时使用默认值 `direct`/`proxy`/`reject`。
 
 ---
 
@@ -302,17 +304,19 @@ rewrite 源文件中的 `hostname =` 行（MITM 主机名声明）会被提取�
 
 **流程**：
 1. 构建 Go 程序
-2. 运行生成器（注入 `ACCEL_DOMAIN` 仓库变量）
+2. 运行生成器（注入 `ACCEL_DOMAIN`、`POLICY_DIRECT`、`POLICY_PROXY`、`POLICY_REJECT` 仓库变量）
 3. 切换到 `release` 分支（只含 snippet 文件）
-4. 提交变更，commit message 包含每个文件的行数变化：
+4. 提交变更，commit message 包含每个文件的行数与增删变化：
 
 ```
 update snippets
-direct.snippet: 112605 lines (+12)
-proxy.snippet: 4126 lines (-3)
-reject.snippet: 218605 lines (+269)
-rewrite.snippet: 1621 lines (+1)
+direct.snippet: 112605 lines (+12 0)
+proxy.snippet: 4126 lines (+0 3)
+reject.snippet: 218605 lines (+269 0)
+rewrite.snippet: 1621 lines (+100 50)
 ```
+
+格式为 `(+新增行数 删除行数)`。
 
 ### cleanup.yml — 历史清理
 

@@ -29,6 +29,9 @@ jobs:
       - name: Run generator
         env:
           ACCEL_DOMAIN: ${{ vars.ACCEL_DOMAIN }}
+          POLICY_DIRECT: ${{ vars.POLICY_DIRECT }}
+          POLICY_PROXY: ${{ vars.POLICY_PROXY }}
+          POLICY_REJECT: ${{ vars.POLICY_REJECT }}
         run: ./quantumult-x --conf-dir . --out-dir out
 
       - name: Commit and push to release
@@ -39,24 +42,24 @@ jobs:
           # Fetch existing release branch to compute line deltas
           git fetch origin release 2>/dev/null || true
 
-          # Build commit message with per-file line counts and deltas
+          # Build commit message with per-file line counts and add/del deltas
           commit_msg="update snippets"
           for f in out/*.snippet; do
             name=$(basename "$f")
             count=$(wc -l < "$f")
-            # Try to get old line count from release branch
-            old_count=$(git show origin/release:"$name" 2>/dev/null | wc -l || echo "0")
-            if [ "$old_count" -eq 0 ]; then
-              delta="+$count"
-            else
-              diff=$((count - old_count))
-              if [ "$diff" -ge 0 ]; then
-                delta="+$diff"
-              else
-                delta="$diff"
-              fi
+            # Get old file from release branch for diff
+            if git show-ref --verify --quiet refs/remotes/origin/release; then
+              git show "origin/release:$name" > /tmp/old_snippet 2>/dev/null || true
             fi
-            commit_msg="$commit_msg"$'\n'"$name: $count lines ($delta)"
+            if [ ! -s /tmp/old_snippet ]; then
+              added=$count
+              removed=0
+            else
+              added=$(diff /tmp/old_snippet "$f" | grep -c '^>' || true)
+              removed=$(diff /tmp/old_snippet "$f" | grep -c '^<' || true)
+            fi
+            rm -f /tmp/old_snippet
+            commit_msg="$commit_msg"$'\n'"$name: $count lines (+$added $removed)"
           done
 
           # Checkout existing release branch (only snippets), or create orphan if first run
