@@ -1,11 +1,8 @@
-(function () {
+var BODY = $resource && $resource.content ? $resource.content : '';
 
-    var BODY = $resource && $resource.content ? $resource.content : '';
-
-    if (!BODY) {
-        $done({ error: 'empty response body' });
-        return;
-    }
+if (!BODY) {
+    $done({ error: 'empty response body' });
+} else {
 
     // ---------- Pre-compiled regexes ----------
     var INLINE_RE = /-\s*\{([\s\S]*?)\}/g;
@@ -214,4 +211,4 @@
         $done({ content: out.join('\n') });
     }
 
-})();
+} // end if (BODY)
