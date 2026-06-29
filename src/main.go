@@ -78,7 +78,7 @@ func runAll(confDir, outDir string, cfg *config.Config, useExamples bool) error 
 			kept = buildRules(lines, spec)
 		}
 
-		if err := ioW.WriteSnippet(outDir, snippetName, kept); err != nil {
+		if err := ioW.WriteSnippet(outDir, snippetName, kept, cfg.Policies); err != nil {
 			return fmt.Errorf("write %s: %w", snippetName, err)
 		}
 	}

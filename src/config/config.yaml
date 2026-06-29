@@ -3,3 +3,7 @@ http_timeout_sec: 30
 http_retries: 2
 log_level: info
 releases_branch: release
+policies:
+  direct: direct
+  proxy: proxy
+  reject: reject

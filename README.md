@@ -150,6 +150,9 @@ go build -o quantumult-x ./src
 
 # 设置加速域名（替换 rewrite 中的 GitHub/raw 链接）
 ACCEL_DOMAIN=your-proxy.example.com ./quantumult-x --conf-dir . --out-dir out
+
+# 自定义策略名称（覆盖 snippet 中的策略后缀）
+POLICY_DIRECT=DIRECT POLICY_PROXY=MyProxy POLICY_REJECT=AdBlock ./quantumult-x --conf-dir . --out-dir out
 ```
 
 ### CLI 参数
@@ -171,6 +174,10 @@ http_timeout_sec: 30     # HTTP 超时（秒）
 http_retries: 2          # HTTP 重试次数
 log_level: info          # 日志级别：debug/info/warn/error
 releases_branch: release # 发布分支名
+policies:                # 策略名称（可通过环境变量 POLICY_DIRECT/POLICY_PROXY/POLICY_REJECT 覆盖）
+  direct: direct
+  proxy: proxy
+  reject: reject
 ```
 
 ### 加速域名
@@ -186,6 +193,22 @@ releases_branch: release # 发布分支名
 ```
 
 匹配的域名包括：`github.com`、`raw.githubusercontent.com`、`raw.github.com`。
+
+### 策略变量
+
+通过环境变量 `POLICY_DIRECT`、`POLICY_PROXY`、`POLICY_REJECT` 自定义 snippet 文件中的策略后缀名称，也可在 `config.yaml` 的 `policies` 段配置。
+
+```
+# 默认输出
+host-keyword,adserv,reject
+host-suffix,google.com,proxy
+
+# 设置 POLICY_REJECT=AdBlock POLICY_PROXY=MyProxy 后
+host-keyword,adserv,AdBlock
+host-suffix,google.com,MyProxy
+```
+
+已有默认策略后缀（`,direct`/`,proxy`/`,reject`）的行会被**替换**为新策略名，而非追加。`ip-cidr,...,no-resolve` 等非策略后缀不受影响。
 
 ---
 

@@ -6,7 +6,9 @@ import (
 	"strings"
 )
 
-func WriteSnippet(outDir, filename string, lines []string) error {
+var defaultPolicies = []string{"direct", "proxy", "reject"}
+
+func WriteSnippet(outDir, filename string, lines []string, policies map[string]string) error {
 	if err := os.MkdirAll(outDir, 0o755); err != nil {
 		return err
 	}
@@ -18,7 +20,7 @@ func WriteSnippet(outDir, filename string, lines []string) error {
 		return err
 	}
 	for _, line := range lines {
-		line = AppendStrategyIfNeeded(line, filename)
+		line = AppendStrategyIfNeeded(line, filename, policies)
 		if _, err := f.WriteString(line + "\n"); err != nil {
 			f.Close()
 			os.Remove(tmpFile)
@@ -32,23 +34,23 @@ func WriteSnippet(outDir, filename string, lines []string) error {
 	return os.Rename(tmpFile, finalFile)
 }
 
-func AppendStrategyIfNeeded(line, filename string) string {
-	if line == "" || filename == "rewrite.snippet" {
+func AppendStrategyIfNeeded(line, filename string, policies map[string]string) string {
+	if line == "" {
 		return line
 	}
-	strategy := ""
-	switch filename {
-	case "direct.snippet":
-		strategy = "direct"
-	case "proxy.snippet":
-		strategy = "proxy"
-	case "reject.snippet":
-		strategy = "reject"
-	default:
+	prefix := strings.TrimSuffix(filename, ".snippet")
+	strategy, ok := policies[prefix]
+	if !ok || strategy == "" {
 		return line
 	}
 	if strings.HasSuffix(line, ","+strategy) {
 		return line
+	}
+	for _, dp := range defaultPolicies {
+		if strings.HasSuffix(line, ","+dp) {
+			line = strings.TrimSuffix(line, ","+dp)
+			break
+		}
 	}
 	return line + "," + strategy
 }
