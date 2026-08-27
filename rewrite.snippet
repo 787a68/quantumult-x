@@ -1309,6 +1309,7 @@ https?://interface\d?\.music\.163\.com/w?e?api/(side-bar/mini-program/music-serv
 ^https://az4-api(-idc)?\.ksapisrv\.com/rest/n/feed/selectionFast\? url jsonjq-response-body 'if (.feeds | type) == "array" then .feeds |= map(select(.ad | not)) else . end'
 ^https://bp-api\.bestv\.cn/cms/api/c/search/hot/v(2|4) url jsonjq-response-body '.dt.hot = [] | .dt.recommand = [] | .dt.bannerList = []'
 ^https://j1\.pupuapi\.com/client/notification/message_center/unread_number url jsonjq-response-body .data = []
+^https?://api\.xiaoyuzhoufm\.com/v1/(related-episode|operation-resource)/list url jsonjq-response-body '.data = []'
 ^https?://api\.xiaoyuzhoufm\.com/v1/discovery-feed/list url jsonjq-response-body '.data |= map(select(.type == "DISCOVERY_EPISODE_RECOMMEND" or .type == "EDITOR_PICK"))'
 ^https?://misc-api-prd-mx\.wandafilm\.com/commend/common_banner_batch\.api url jsonjq-response-body '.data.objects["OpenAPP-&-FlashAD"] = [] | .data.objects["InTheaters-&-BoxAD"] = []'
 ^https?://oneapp-api\.faw-vw\.com/benefits/benefitsCard/getInfo/v1\?.* url jsonjq-response-body '. = { returnStatus: "SUCCEED", hasMore: false, data: [] }'
